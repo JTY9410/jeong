@@ -21,7 +21,12 @@ class Settings:
     def from_env() -> "Settings":
         # SQLite default (dev). For Postgres, set DATABASE_URL like:
         # postgresql+psycopg://user:pass@postgres:5432/recruitment
-        database_url = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
+        #
+        # NOTE: Serverless platforms (e.g. Vercel) have a read-only filesystem
+        # except for /tmp. Use /tmp for the SQLite fallback to avoid crashes.
+        is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+        default_sqlite = "sqlite:////tmp/app.db" if is_vercel else "sqlite:///./data/app.db"
+        database_url = os.getenv("DATABASE_URL", default_sqlite)
 
         return Settings(
             secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)),
