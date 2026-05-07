@@ -19,5 +19,5 @@ RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "run:app", "--workers", "2", "--threads", "4", "--timeout", "120"]
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "wsgi:app", "--workers", "1", "--threads", "4", "--timeout", "120"]
 
