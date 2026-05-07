@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import os
+import json
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, session, jsonify
 from sqlalchemy import select, func, desc, text
@@ -408,17 +411,47 @@ def api_run_crawl():
             with _db() as db:
                 force_intern_keyword = SettingsService(db).get_force_intern_keyword()
 
-    # Serverless platforms (e.g. Vercel) are not suitable for Playwright crawling.
+    # Vercel -> proxy the crawl request to an external crawler server (EC2).
     if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
-        return (
-            jsonify(
-                {
-                    "ok": False,
-                    "error": "Crawling is disabled on Vercel/serverless. Use Docker/VM for crawling.",
-                }
-            ),
-            400,
+        crawler_url = (os.getenv("CRAWLER_PROXY_URL") or "").rstrip("/")
+        secret = os.getenv("CRAWLER_SHARED_SECRET") or ""
+        if not crawler_url or not secret:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "Crawler proxy is not configured. Set CRAWLER_PROXY_URL and CRAWLER_SHARED_SECRET.",
+                    }
+                ),
+                500,
+            )
+
+        payload = json.dumps({"force_intern_keyword": bool(force_intern_keyword)}).encode("utf-8")
+        req = Request(
+            f"{crawler_url}/internal/crawl/run",
+            data=payload,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-CRAWL-SECRET": secret,
+            },
         )
+        try:
+            with urlopen(req, timeout=170) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+            try:
+                data = json.loads(body)
+            except Exception:
+                return jsonify({"ok": False, "error": "Invalid response from crawler", "raw": body}), 502
+            return jsonify(data), 200
+        except HTTPError as e:
+            raw = e.read().decode("utf-8", errors="replace")
+            return jsonify({"ok": False, "error": "Crawler error", "status": e.code, "raw": raw}), 502
+        except URLError as e:
+            return jsonify({"ok": False, "error": f"Crawler unreachable: {e}"}), 502
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"Crawler request failed: {e}"}), 502
 
     # Always allow manual crawl even if scheduler is disabled
     mgr = current_app.extensions.get("scheduler_manager")
@@ -427,6 +460,30 @@ def api_run_crawl():
         return jsonify({"ok": True, "result": result})
 
     # fallback: run directly
+    SessionLocal = current_app.extensions["SessionLocal"]
+    with SessionLocal() as db:
+        result = CrawlService(db).run(force_intern_keyword=force_intern_keyword)
+    return jsonify({"ok": True, "result": result})
+
+
+@bp.post("/internal/crawl/run")
+def internal_run_crawl():
+    """
+    Internal endpoint intended for the crawler server (EC2).
+    Protected by a shared secret header.
+    """
+    secret = os.getenv("CRAWLER_SHARED_SECRET") or ""
+    if not secret or request.headers.get("X-CRAWL-SECRET") != secret:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    force_intern_keyword = bool(data.get("force_intern_keyword", True))
+
+    mgr = current_app.extensions.get("scheduler_manager")
+    if mgr:
+        result = mgr.run_once(force_intern_keyword=force_intern_keyword)
+        return jsonify({"ok": True, "result": result})
+
     SessionLocal = current_app.extensions["SessionLocal"]
     with SessionLocal() as db:
         result = CrawlService(db).run(force_intern_keyword=force_intern_keyword)
