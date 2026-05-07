@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import os
+
 from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, session, jsonify
 from sqlalchemy import select, func, desc, text
 
@@ -405,6 +407,18 @@ def api_run_crawl():
         else:
             with _db() as db:
                 force_intern_keyword = SettingsService(db).get_force_intern_keyword()
+
+    # Serverless platforms (e.g. Vercel) are not suitable for Playwright crawling.
+    if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "Crawling is disabled on Vercel/serverless. Use Docker/VM for crawling.",
+                }
+            ),
+            400,
+        )
 
     # Always allow manual crawl even if scheduler is disabled
     mgr = current_app.extensions.get("scheduler_manager")

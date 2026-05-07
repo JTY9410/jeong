@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.crawling.scrapers import scrape_all
 from app.models import JobPosting, Internship, Notification
 from app.services.settings_service import SettingsService
 
@@ -16,6 +15,10 @@ class CrawlService:
         self.db = db
 
     def run(self, *, force_intern_keyword: bool = True) -> dict:
+        # Import scrapers lazily so serverless deployments (e.g. Vercel) can run
+        # the web UI without pulling heavy crawling dependencies at import time.
+        from app.crawling.scrapers import scrape_all
+
         settings = SettingsService(self.db)
         keywords = settings.get_keywords()
         enabled = settings.get_site_enabled_map()
