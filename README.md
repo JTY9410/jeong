@@ -42,3 +42,11 @@ export FLASK_APP=run.py
 flask run --host=0.0.0.0 --port=8000
 ```
 
+### (선택) ML/XAI 의존성 설치
+요구사항의 ML/XAI(Scikit-learn/LightGBM/XGBoost/SHAP)는 용량이 커서 서버리스(Lambda 등) 배포 번들을 크게 만들 수 있습니다.
+필요할 때만 아래를 추가로 설치하세요.
+
+```bash
+pip install -r requirements-ml.txt
+```
+
