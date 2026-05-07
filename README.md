@@ -32,6 +32,33 @@ docker compose up --build
 - **ID**: `jsy1004`
 - **PW**: `jsy0701`
 
+### Vercel(웹 UI) + EC2(크롤러) + Neon(Postgres) 권장 배포
+서버리스(Vercel/Lambda) 환경에서는 Playwright 크롤링이 불안정/제한이 많아, 웹 UI와 크롤러를 분리하는 구성을 권장합니다.
+
+#### 1) Neon Postgres 준비
+- Neon에서 DB를 만들고 `DATABASE_URL`을 발급받습니다.
+
+#### 2) EC2(크롤러 서버) 환경변수
+EC2에서는 Docker로 앱을 띄우고 스케줄러/크롤링을 수행합니다.
+
+- `DATABASE_URL`: Neon에서 받은 값
+- `SCHEDULER_ENABLED`: `"true"`
+- `CRAWLER_SHARED_SECRET`: 임의의 긴 문자열(예: 32+ chars)
+
+EC2에서는 내부 실행 API가 열립니다:
+- `POST /internal/crawl/run` (헤더 `X-CRAWL-SECRET: <CRAWLER_SHARED_SECRET>` 필요)
+
+#### 3) Vercel(웹 UI) 환경변수
+Vercel에서는 크롤링 버튼을 EC2로 프록시합니다.
+
+- `DATABASE_URL`: Neon에서 받은 값 (UI/검색용)
+- `SCHEDULER_ENABLED`: `"false"`
+- `CRAWLER_PROXY_URL`: 예) `https://crawler.example.com` (EC2의 공개 주소)
+- `CRAWLER_SHARED_SECRET`: EC2와 동일 값
+
+이제 Vercel에서 `지금 크롤링 실행`을 누르면:
+Vercel → `CRAWLER_PROXY_URL/internal/crawl/run` 호출 → 결과를 받아 UI에 표시합니다.
+
 ### 개발 실행 (로컬)
 ```bash
 python -m venv .venv
