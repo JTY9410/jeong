@@ -1,0 +1,41 @@
+name: recruitment-crawler
+
+services:
+  web:
+    build: .
+    ports:
+      - "8100:8000"
+    environment:
+      # 운영에서는 반드시 고정 SECRET_KEY 지정 권장
+      SECRET_KEY: "change-me-in-prod"
+      FLASK_ENV: "production"
+      TIMEZONE: "Asia/Seoul"
+      SCHEDULER_ENABLED: "true"
+      CRAWL_TIME: "07:00"
+      INTERNSHIP_INTERVAL_MINUTES: "120"
+      DEFAULT_USERNAME: "jsy1004"
+      DEFAULT_PASSWORD: "jsy0701"
+      # 기본: SQLite
+      DATABASE_URL: "sqlite:////app/data/app.db"
+      # PostgreSQL로 전환 시 아래로 변경:
+      # DATABASE_URL: "postgresql+psycopg://recruit:recruit@postgres:5432/recruitment"
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: recruitment
+      POSTGRES_USER: recruit
+      POSTGRES_PASSWORD: recruit
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  app_data:
+  pg_data:
+

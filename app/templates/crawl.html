@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}수동 크롤링 | 채용 정보 수집기{% endblock %}
+{% block topbar_title %}크롤링 실행{% endblock %}
+{% block content %}
+<div class="page-hero mb-3">
+  <div class="page-hero-eyebrow">수동 실행</div>
+  <h1 class="page-hero-title">크롤링</h1>
+  <p class="page-hero-sub">버튼을 누르면 즉시 수집을 수행하고, 신규 항목은 목록/알림에 반영됩니다.</p>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <button id="btn-run-crawl" class="btn btn-primary">지금 크롤링 실행</button>
+      <div class="form-check ms-1">
+        <input class="form-check-input" type="checkbox" id="force-intern-keyword" {% if force_intern_keyword %}checked{% endif %}>
+        <label class="form-check-label small" for="force-intern-keyword">
+          “인턴” 자동 포함
+        </label>
+      </div>
+      <span id="crawl-status" class="text-muted small"></span>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="row g-3 mb-3">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <span>추천 인턴/채용 페이지 바로가기</span>
+            <span class="badge badge-gray smaller">원문 링크</span>
+          </div>
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <a class="btn btn-outline-secondary btn-sm w-100" href="https://linkareer.com/list/intern" target="_blank" rel="noreferrer">
+                  링커리어 인턴 (대기업/중견)
+                </a>
+              </div>
+              <div class="col-12 col-md-6">
+                <a class="btn btn-outline-secondary btn-sm w-100" href="https://www.jobkorea.co.kr/starter/calendar" target="_blank" rel="noreferrer">
+                  잡코리아 공채 달력
+                </a>
+              </div>
+              <div class="col-12 col-md-6">
+                <a class="btn btn-outline-secondary btn-sm w-100" href="https://www.catch.co.kr/NCS/RecruitSearch" target="_blank" rel="noreferrer">
+                  캐치 인턴 모음
+                </a>
+              </div>
+              <div class="col-12 col-md-6">
+                <a class="btn btn-outline-secondary btn-sm w-100" href="https://job.incruit.com/jobdb_list/searchjob.asp?col=job&query=%EC%9D%B8%ED%84%B4" target="_blank" rel="noreferrer">
+                  인크루트 인턴 검색
+                </a>
+              </div>
+              <div class="col-12 col-md-6">
+                <a class="btn btn-outline-secondary btn-sm w-100" href="https://www.saramin.co.kr/zf_user/search/recruit?searchword=%EC%9D%B8%ED%84%B4" target="_blank" rel="noreferrer">
+                  사람인 인턴 검색
+                </a>
+              </div>
+              <div class="col-12 col-md-6">
+                <a class="btn btn-outline-secondary btn-sm w-100" href="https://www.linkedin.com/jobs/search/?keywords=intern" target="_blank" rel="noreferrer">
+                  LinkedIn Intern 검색
+                </a>
+              </div>
+            </div>
+            <div class="text-muted small mt-2">
+              LinkedIn은 로그인/차단 이슈로 자동 수집이 제한될 수 있습니다.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <div class="stat-card">
+          <div class="stat-icon blue">📄</div>
+          <div class="stat-body">
+            <div class="stat-label">신규 공개채용</div>
+            <div class="stat-value" id="res-jobs">-</div>
+            <div class="stat-sub">이번 실행 결과</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="stat-card">
+          <div class="stat-icon green">🧩</div>
+          <div class="stat-body">
+            <div class="stat-label">신규 인턴</div>
+            <div class="stat-value" id="res-interns">-</div>
+            <div class="stat-sub">이번 실행 결과</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="stat-card">
+          <div class="stat-icon amber">🔔</div>
+          <div class="stat-body">
+            <div class="stat-label">신규 알림</div>
+            <div class="stat-value" id="res-noti">-</div>
+            <div class="stat-sub">이번 실행 결과</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('web.jobs') }}">공개채용 목록 보기</a>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('web.internships') }}">인턴 목록 보기</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btn-run-crawl");
+  const status = document.getElementById("crawl-status");
+  const jobs = document.getElementById("res-jobs");
+  const interns = document.getElementById("res-interns");
+  const noti = document.getElementById("res-noti");
+  const forceIntern = document.getElementById("force-intern-keyword");
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    status.textContent = "실행 중...";
+    try {
+      const res = await fetch("/api/crawl/run", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "X-CSRFToken": window.csrfToken || ""
+        },
+        body: JSON.stringify({
+          force_intern_keyword: !!(forceIntern && forceIntern.checked)
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "failed");
+      const r = data.result || {};
+      jobs.textContent = String(r.new_jobs ?? "-");
+      interns.textContent = String(r.new_internships ?? "-");
+      noti.textContent = String(r.new_notifications ?? "-");
+      status.textContent = "완료";
+      if (window.showToast) window.showToast("크롤링 완료", "success");
+    } catch (e) {
+      status.textContent = "실패";
+      if (window.showToast) window.showToast("크롤링 실패", "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
+</script>
+{% endblock %}
+

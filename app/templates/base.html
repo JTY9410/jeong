@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a">
+    <title>{% block title %}채용 수집기{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body>
+    <div id="toast-container"></div>
+
+    <div class="app-shell">
+      {% if session.get('username') %}
+      <aside class="sidebar" id="sidebar">
+        <a class="sidebar-logo" href="{{ url_for('web.dashboard') }}">
+          <div class="sidebar-logo-icon">J</div>
+          <div>
+            <div class="sidebar-logo-text">Jeong Recruit</div>
+            <div class="sidebar-logo-sub">채용·인턴 수집/검색</div>
+          </div>
+        </a>
+
+        <nav class="sidebar-nav">
+          <div class="sidebar-section">
+            <div class="sidebar-section-label">수집</div>
+            <a class="sidebar-link {% if request.path == '/dashboard' %}active{% endif %}" href="{{ url_for('web.dashboard') }}">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              대시보드
+            </a>
+            <a class="sidebar-link {% if request.path == '/crawl' %}active{% endif %}" href="{{ url_for('web.crawl_page') }}">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12A9 9 0 1 1 3 12"/><polyline points="21 3 21 9 15 9"/></svg>
+              크롤링 실행
+            </a>
+          </div>
+
+          <div class="sidebar-section mt-3">
+            <div class="sidebar-section-label">목록</div>
+            <a class="sidebar-link {% if request.path == '/jobs' %}active{% endif %}" href="{{ url_for('web.jobs') }}">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              공개채용
+            </a>
+            <a class="sidebar-link {% if request.path == '/internships' %}active{% endif %}" href="{{ url_for('web.internships') }}">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+              인턴
+            </a>
+          </div>
+
+          <div class="sidebar-section mt-3">
+            <div class="sidebar-section-label">검색</div>
+            <a class="sidebar-link {% if request.path == '/search' %}active{% endif %}" href="{{ url_for('web.search') }}">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              통합 검색
+            </a>
+          </div>
+
+          <div class="sidebar-section mt-3">
+            <div class="sidebar-section-label">설정</div>
+            <a class="sidebar-link {% if request.path == '/settings' %}active{% endif %}" href="{{ url_for('web.settings') }}">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1.82A2 2 0 1 1 10 22a1.65 1.65 0 0 0-.33-1.82 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 3.96 19.8l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.82-.33l-.06.06A2 2 0 1 1 1.2 10.04l.06.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0 .33-1.82l-.06-.06A2 2 0 1 1 7.7 3.3l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .33-1.82A2 2 0 1 1 14 2a1.65 1.65 0 0 0 .33 1.82 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 22.8 7.7l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 .6 1 1.65 1.65 0 0 0 1.82.33l.06-.06A2 2 0 1 1 22.8 14.3l-.06-.06A1.65 1.65 0 0 0 19.4 15z"/></svg>
+              설정
+            </a>
+          </div>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="sidebar-link py-1" style="flex:1; cursor: default; opacity:.75;">{{ session.get('username') }}</span>
+          </div>
+          <form method="post" action="{{ url_for('web.logout') }}">
+            {{ csrf_token() }}
+            <button class="sidebar-link" type="submit">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              로그아웃
+            </button>
+          </form>
+        </div>
+      </aside>
+      {% endif %}
+
+      <div class="main-content">
+        <header class="topbar">
+          {% if session.get('username') %}
+          <button class="sidebar-toggle" id="sidebarToggle" title="메뉴">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          {% endif %}
+          <span class="topbar-title">{% block topbar_title %}채용 수집기{% endblock %}</span>
+          <div class="topbar-right">
+            {% if session.get('username') %}
+            <form class="input-group" method="get" action="{{ url_for('web.search') }}" role="search" style="min-width: min(520px, 54vw);">
+              <input class="form-control" type="search" name="q" value="{{ request.args.get('q','') }}" placeholder="회사/직무/설명 통합검색" />
+              <button class="btn btn-primary" type="submit">검색</button>
+            </form>
+            {% endif %}
+          </div>
+        </header>
+
+        <main class="page-content">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
+

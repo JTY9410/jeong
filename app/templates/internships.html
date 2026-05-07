@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}인턴 | 채용 정보 수집기{% endblock %}
+{% block topbar_title %}인턴{% endblock %}
+{% block content %}
+<div class="page-hero mb-3">
+  <div class="page-hero-eyebrow">인턴</div>
+  <h1 class="page-hero-title">최신 인턴 공고</h1>
+  <p class="page-hero-sub">회사/직무는 이 페이지에서, 설명까지 포함한 통합 검색은 상단 검색을 이용하세요.</p>
+</div>
+
+<div class="filter-bar mb-3">
+  <form class="row g-2 align-items-end" method="get">
+    <div class="col-12 col-md-6">
+      <label class="form-label">회사/직무</label>
+      <input class="form-control" name="q" value="{{ q }}" placeholder="예) 인턴, 마케팅, 기획" />
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label">사이트</label>
+      <select class="form-select" name="site">
+        <option value="" {% if not site %}selected{% endif %}>전체</option>
+        <option value="Wevity" {% if site == "Wevity" %}selected{% endif %}>Wevity</option>
+        <option value="InternInMeta" {% if site == "InternInMeta" %}selected{% endif %}>InternInMeta</option>
+        <option value="IndeedKR" {% if site == "IndeedKR" %}selected{% endif %}>IndeedKR</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-2 d-grid">
+      <button class="btn btn-primary" type="submit">검색</button>
+    </div>
+  </form>
+  <div class="d-flex gap-2 flex-wrap mt-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('web.crawl_page') }}">지금 크롤링</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('web.search') }}">통합 검색</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for it in items %}
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="text-muted small mb-1">{{ it.company }}</div>
+              <div class="h5 mb-2">{{ it.title }}</div>
+              <div class="d-flex flex-wrap gap-2 small text-muted">
+                <span class="badge badge-gray">{{ it.site }}</span>
+                {% if it.location %}<span>지역: {{ it.location }}</span>{% endif %}
+                {% if it.application_deadline %}<span>마감: {{ it.application_deadline }}</span>{% endif %}
+                {% if it.start_date or it.end_date %}
+                  <span>기간: {{ it.start_date or "?" }} ~ {{ it.end_date or "?" }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="text-end">
+              <a class="btn btn-outline-primary btn-sm" href="{{ it.url }}" target="_blank" rel="noreferrer">원문 열기</a>
+            </div>
+          </div>
+          {% if it.description %}
+            <div class="mt-3 text-muted small">
+              {{ it.description[:160] }}{% if it.description|length > 160 %}…{% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-muted">데이터가 없습니다. 상단에서 크롤링을 실행해보세요.</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
+

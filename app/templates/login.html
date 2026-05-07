@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>로그인 | 채용 수집기</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">J</div>
+      <span class="login-logo-text">Jeong Recruit</span>
+    </div>
+
+    <p class="text-center text-muted small mb-4">채용·인턴 공고 수집/검색 대시보드</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      {{ form.csrf_token }}
+      <div class="mb-3">
+        <label class="form-label">{{ form.username.label }}</label>
+        {{ form.username(class_="form-control", autocomplete="username", autofocus=true) }}
+      </div>
+      <div class="mb-4">
+        <label class="form-label">{{ form.password.label }}</label>
+        {{ form.password(class_="form-control", autocomplete="current-password") }}
+      </div>
+      {{ form.submit(class_="btn btn-primary w-100 btn-lg") }}
+      <div class="text-muted small mt-3">
+        초기 계정: <span class="fw-semibold">jsy1004</span> / <span class="fw-semibold">jsy0701</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
+

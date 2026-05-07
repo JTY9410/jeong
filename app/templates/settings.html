@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}설정 | 채용 정보 수집기{% endblock %}
+{% block topbar_title %}설정{% endblock %}
+{% block content %}
+<div class="page-hero mb-3">
+  <div class="page-hero-eyebrow">설정</div>
+  <h1 class="page-hero-title">키워드 · 사이트</h1>
+  <p class="page-hero-sub">수집 대상 키워드와 크롤링 사이트를 관리합니다. 저장 후 크롤링을 실행해보세요.</p>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header"><span>키워드</span><span class="badge badge-gray smaller">1줄=1키워드</span></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('web.settings_keywords') }}">
+          {{ csrf_token() }}
+          <div class="text-muted small mb-2">제목에 포함되면 수집 대상으로 판단합니다.</div>
+          <textarea class="form-control" name="keywords" rows="12" placeholder="예) 콘텐츠&#10;예) HR&#10;예) 인턴">{{ keywords }}</textarea>
+          <div class="d-grid mt-3">
+            <button class="btn btn-primary" type="submit">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header"><span>인턴 검색 옵션</span><span class="badge badge-gray smaller">default</span></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('web.settings_internship') }}">
+          {{ csrf_token() }}
+          <div class="text-muted small mb-2">
+            인턴 스크래핑에서 키워드에 “인턴”이 없을 때 자동으로 포함할지 설정합니다.
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="force_intern_keyword" name="force_intern_keyword" {% if force_intern_keyword %}checked{% endif %} />
+            <label class="form-check-label" for="force_intern_keyword">
+              “인턴” 자동 포함 (추천)
+            </label>
+          </div>
+          <div class="d-grid mt-3">
+            <button class="btn btn-primary" type="submit">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header"><span>사이트 활성화</span><span class="badge badge-gray smaller">enabled only</span></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('web.settings_sites') }}">
+          {{ csrf_token() }}
+          <div class="text-muted small mb-2">활성화된 사이트만 크롤러가 동작합니다.</div>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr><th>site_key</th><th class="text-end">활성화</th></tr>
+              </thead>
+              <tbody>
+                {% for k in site_keys %}
+                  <tr>
+                    <td class="fw-semibold">{{ k }}</td>
+                    <td class="text-end">
+                      <input type="checkbox" name="enabled" value="{{ k }}" {% if site_enabled.get(k) %}checked{% endif %} />
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="d-grid mt-3">
+            <button class="btn btn-primary" type="submit">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
