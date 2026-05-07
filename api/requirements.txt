@@ -1,0 +1,10 @@
+Flask>=3.0,<4.0
+Flask-WTF>=1.2
+Flask-Limiter>=3.6
+SQLAlchemy>=2.0
+psycopg[binary]>=3.2
+bcrypt>=4.1
+APScheduler>=3.10
+python-dotenv>=1.0
+WTForms>=3.1
+
