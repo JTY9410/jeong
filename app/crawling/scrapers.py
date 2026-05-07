@@ -148,7 +148,7 @@ async def scrape_saramin_public(keywords: list[str]) -> list[ScrapeJob]:
         return []
 
 
-async def scrape_wevity_internships(keywords: list[str]) -> list[ScrapeInternship]:
+async def scrape_wevity_internships(keywords: list[str], *, force_intern_keyword: bool = True) -> list[ScrapeInternship]:
     url = "https://www.wevity.com"
     try:
         async with new_stealth_page() as page:
