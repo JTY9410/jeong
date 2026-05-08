@@ -1,0 +1,29 @@
+# EC2(크롤러 서버) 전용 Docker Compose
+# 사용법:
+#   docker compose -f docker-compose.crawler.yml up -d
+#
+# 필수 환경변수 (EC2 인스턴스에 /etc/environment 또는 .env 로 설정)
+#   DATABASE_URL            — Neon Postgres URL
+#   SECRET_KEY              — Vercel과 동일한 값
+#   CRAWLER_SHARED_SECRET   — Vercel CRAWLER_SHARED_SECRET와 동일 값
+
+name: recruitment-crawler-ec2
+
+services:
+  crawler:
+    image: ghcr.io/jty9410/jeong:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY:               "${SECRET_KEY}"
+      FLASK_ENV:                "production"
+      TIMEZONE:                 "Asia/Seoul"
+      SCHEDULER_ENABLED:        "true"
+      CRAWL_TIME:               "${CRAWL_TIME:-07:00}"
+      INTERNSHIP_INTERVAL_MINUTES: "${INTERNSHIP_INTERVAL_MINUTES:-120}"
+      DATABASE_URL:             "${DATABASE_URL}"
+      CRAWLER_SHARED_SECRET:    "${CRAWLER_SHARED_SECRET}"
+      DEFAULT_USERNAME:         "${DEFAULT_USERNAME:-jsy1004}"
+      DEFAULT_PASSWORD:         "${DEFAULT_PASSWORD:-jsy0701}"

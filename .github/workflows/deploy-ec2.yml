@@ -1,0 +1,43 @@
+# main 브랜치에 푸시될 때 EC2 크롤러 서버에 최신 이미지를 배포합니다.
+#
+# GitHub Secrets에 아래를 등록하세요:
+#   EC2_HOST            — EC2 퍼블릭 IP 또는 도메인
+#   EC2_USER            — SSH 접속 계정 (예: ec2-user, ubuntu)
+#   EC2_SSH_KEY         — PEM 키 내용 (-----BEGIN RSA PRIVATE KEY----- 포함 전체)
+#   EC2_DEPLOY_DIR      — 배포 디렉터리 (예: /home/ec2-user/jeong-crawler)
+
+name: Deploy to EC2
+
+on:
+  workflow_run:
+    workflows: ["Docker build and push"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into EC2 and pull latest image
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd "${{ secrets.EC2_DEPLOY_DIR }}"
+
+            # 최신 docker-compose 설정 내려받기
+            curl -fsSL \
+              "https://raw.githubusercontent.com/JTY9410/jeong/main/docker-compose.crawler.yml" \
+              -o docker-compose.crawler.yml
+
+            # GHCR에서 최신 이미지 pull 후 재시작
+            docker compose -f docker-compose.crawler.yml pull
+            docker compose -f docker-compose.crawler.yml up -d --remove-orphans
+
+            # 오래된 이미지 정리
+            docker image prune -f
