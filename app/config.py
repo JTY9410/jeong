@@ -5,6 +5,18 @@ import secrets
 from dataclasses import dataclass
 
 
+def _coerce_postgres_url_for_psycopg3(database_url: str) -> str:
+    """
+    Neon/Heroku-style URLs use postgres:// or postgresql:// without a SQLAlchemy driver.
+    SQLAlchemy then defaults to psycopg2, which this project does not install (only psycopg3).
+    """
+    if database_url.startswith("postgres://"):
+        return "postgresql+psycopg://" + database_url.removeprefix("postgres://")
+    if database_url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + database_url.removeprefix("postgresql://")
+    return database_url
+
+
 @dataclass(frozen=True)
 class Settings:
     secret_key: str
@@ -27,6 +39,8 @@ class Settings:
         is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
         default_sqlite = "sqlite:////tmp/app.db" if is_vercel else "sqlite:///./data/app.db"
         database_url = os.getenv("DATABASE_URL", default_sqlite)
+        if database_url.startswith(("postgres://", "postgresql://")):
+            database_url = _coerce_postgres_url_for_psycopg3(database_url)
 
         return Settings(
             secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)),
