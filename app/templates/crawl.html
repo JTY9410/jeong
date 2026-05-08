@@ -137,8 +137,11 @@ document.addEventListener("DOMContentLoaded", () => {
           force_intern_keyword: !!(forceIntern && forceIntern.checked)
         })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.message || data.error || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
       const r = data.result || {};
       jobs.textContent = String(r.new_jobs ?? "-");
       interns.textContent = String(r.new_internships ?? "-");
@@ -147,7 +150,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (window.showToast) window.showToast("크롤링 완료", "success");
     } catch (e) {
       status.textContent = "실패";
-      if (window.showToast) window.showToast("크롤링 실패", "error");
+      const msg = e && e.message ? e.message : "크롤링 실패";
+      if (window.showToast) window.showToast(msg, "error");
     } finally {
       btn.disabled = false;
     }

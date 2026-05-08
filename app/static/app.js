@@ -90,16 +90,24 @@ async function bindRunCrawl() {
     try {
       const res = await fetch("/api/crawl/run", {
         method: "POST",
-        headers: { "Accept": "application/json", "X-CSRFToken": window.csrfToken || "" }
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "X-CSRFToken": window.csrfToken || ""
+        },
+        body: JSON.stringify({})
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "crawl failed");
+      if (!res.ok) {
+        const msg = data.message || data.error || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
       btn.textContent = "완료";
       showToast("크롤링 완료", "success");
       setTimeout(() => { btn.textContent = "지금 크롤링 실행"; }, 1200);
     } catch (e) {
       btn.textContent = "실패";
-      showToast("크롤링 실패", "error");
+      showToast(e && e.message ? e.message : "크롤링 실패", "error");
       setTimeout(() => { btn.textContent = "지금 크롤링 실행"; }, 1200);
     } finally {
       btn.disabled = false;

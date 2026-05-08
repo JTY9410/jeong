@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import os
-from flask import Flask
+from flask import Flask, jsonify, request
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+
+try:
+    from flask_limiter.errors import RateLimitExceeded
+except Exception:  # pragma: no cover
+    RateLimitExceeded = None  # type: ignore[misc,assignment]
 
 from app.config import Settings
 from app.db import Base
@@ -141,6 +146,30 @@ def create_app() -> Flask:
     from app.web.routes import bp as web_bp
 
     app.register_blueprint(web_bp)
+
+    @app.errorhandler(CSRFError)
+    def _handle_csrf(err: CSRFError):
+        if request.path.startswith("/api/"):
+            detail = getattr(err, "description", None) or str(err)
+            return jsonify({"ok": False, "error": "csrf_failed", "message": detail}), 400
+        return (
+            "세션이 만료되었거나 보안 토큰이 맞지 않습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.",
+            400,
+            {"Content-Type": "text/plain; charset=utf-8"},
+        )
+
+    if RateLimitExceeded is not None:
+
+        @app.errorhandler(RateLimitExceeded)
+        def _handle_rate_limit(err: RateLimitExceeded):
+            if request.path.startswith("/api/"):
+                detail = getattr(err, "description", None) or str(err)
+                return jsonify({"ok": False, "error": "rate_limited", "message": detail}), 429
+            return (
+                "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+                429,
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
 
     # seed default user (id/pw) if none exists
     with SessionLocal() as db:

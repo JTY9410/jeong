@@ -55,9 +55,9 @@ Vercel에서는 크롤링 버튼을 EC2로 프록시합니다.
 - `SCHEDULER_ENABLED`: `"false"`
 - `CRAWLER_PROXY_URL`: 예) `https://crawler.example.com` (EC2의 공개 주소)
 - `CRAWLER_SHARED_SECRET`: EC2와 동일 값
+- (선택) `CRAWLER_REQUEST_TIMEOUT_SEC`: Vercel 함수가 EC2 응답을 기다리는 최대 초(기본 250). 플랜 한도가 더 짧으면 이 값을 **함수 maxDuration보다 10~20초 작게** 맞추세요.
 
-이제 Vercel에서 `지금 크롤링 실행`을 누르면:
-Vercel → `CRAWLER_PROXY_URL/internal/crawl/run` 호출 → 결과를 받아 UI에 표시합니다.
+`vercel.json`의 `functions["api/index.py"].maxDuration`(기본 300초)은 **요금제/프로젝트 설정**에 따라 실제 한도가 더 짧을 수 있습니다. 크롤이 자주 끊기면 Vercel **Runtime Logs**에서 `vercel crawl proxy` 로그와 응답 JSON의 `error` 필드를 확인하세요.
 
 ### 개발 실행 (로컬)
 ```bash
