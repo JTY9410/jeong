@@ -433,8 +433,9 @@ def api_run_crawl():
 
     # Vercel -> proxy the crawl request to an external crawler server (EC2).
     if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
-        crawler_url = (os.getenv("CRAWLER_PROXY_URL") or "").rstrip("/")
-        secret = os.getenv("CRAWLER_SHARED_SECRET") or ""
+        # Vercel env 값이 CLI 입력 등으로 개행을 포함하는 경우가 있어 strip()으로 정리합니다.
+        crawler_url = (os.getenv("CRAWLER_PROXY_URL") or "").strip().rstrip("/")
+        secret = (os.getenv("CRAWLER_SHARED_SECRET") or "").strip()
         if not crawler_url or not secret:
             current_app.logger.warning("vercel crawl: missing CRAWLER_PROXY_URL or CRAWLER_SHARED_SECRET")
             return (
@@ -582,8 +583,8 @@ def internal_run_crawl():
     Internal endpoint intended for the crawler server (EC2).
     Protected by a shared secret header.
     """
-    secret = os.getenv("CRAWLER_SHARED_SECRET") or ""
-    if not secret or request.headers.get("X-CRAWL-SECRET") != secret:
+    secret = (os.getenv("CRAWLER_SHARED_SECRET") or "").strip()
+    if not secret or (request.headers.get("X-CRAWL-SECRET") or "").strip() != secret:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
     data = request.get_json(silent=True) or {}
