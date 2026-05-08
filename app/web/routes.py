@@ -13,7 +13,7 @@ from app.limiter_rules import login_limiter, api_limiter
 from app.models import User, JobPosting, Internship, Notification
 from app.security import verify_password
 from app.web.forms import LoginForm
-from app.web.auth import login_required
+from app.web.auth import login_required, api_login_required
 from app.services.settings_service import SettingsService
 from app.crawling.sites import SITES
 from app.services.crawl_service import CrawlService
@@ -325,7 +325,7 @@ def search():
 
 
 @bp.get("/api/notifications/unread")
-@login_required
+@api_login_required
 @api_limiter
 def api_unread_notifications():
     with _db() as db:
@@ -367,7 +367,7 @@ def api_unread_notifications():
 
 
 @bp.post("/api/notifications/mark-read")
-@login_required
+@api_login_required
 @api_limiter
 def api_mark_read():
     data = request.get_json(silent=True) or {}
@@ -387,7 +387,7 @@ def api_mark_read():
 
 
 @bp.post("/api/crawl/run")
-@login_required
+@api_login_required
 @api_limiter
 def api_run_crawl():
     def _parse_bool(s: str | None) -> bool | None:
