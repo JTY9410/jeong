@@ -19,6 +19,7 @@ from app.web.auth import login_required, api_login_required
 from app.services.settings_service import SettingsService
 from app.crawling.sites import SITES
 from app.services.crawl_service import CrawlService
+from app import csrf
 
 
 bp = Blueprint("web", __name__)
@@ -407,6 +408,7 @@ def api_mark_read():
 
 
 @bp.post("/api/crawl/run")
+@csrf.exempt
 @api_login_required
 @api_limiter
 def api_run_crawl():
@@ -578,6 +580,7 @@ def api_run_crawl():
 
 
 @bp.post("/internal/crawl/run")
+@csrf.exempt
 def internal_run_crawl():
     """
     Internal endpoint intended for the crawler server (EC2).
