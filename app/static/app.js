@@ -1,5 +1,8 @@
 async function fetchUnread() {
-  const res = await fetch("/api/notifications/unread", { headers: { "Accept": "application/json" } });
+  const res = await fetch("/api/notifications/unread", {
+    credentials: "same-origin",
+    headers: { "Accept": "application/json" }
+  });
   if (!res.ok) return { items: [] };
   return await res.json();
 }
@@ -7,6 +10,7 @@ async function fetchUnread() {
 async function markRead(ids) {
   const res = await fetch("/api/notifications/mark-read", {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRFToken": window.csrfToken || "" },
     body: JSON.stringify({ ids })
   });
@@ -27,6 +31,7 @@ function showToast(message, type = "info") {
 window.showToast = showToast;
 
 function initChart() {
+  if (typeof Chart === "undefined") return;
   const el = document.getElementById("chart-data");
   const canvas = document.getElementById("chart-14d");
   if (!el || !canvas) return;
@@ -90,6 +95,7 @@ async function bindRunCrawl() {
     try {
       const res = await fetch("/api/crawl/run", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Accept": "application/json",
           "Content-Type": "application/json",

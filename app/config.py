@@ -42,8 +42,17 @@ class Settings:
         if database_url.startswith(("postgres://", "postgresql://")):
             database_url = _coerce_postgres_url_for_psycopg3(database_url)
 
+        secret_key = (os.getenv("SECRET_KEY") or "").strip()
+        if is_vercel and not secret_key:
+            raise RuntimeError(
+                "Vercel에는 SECRET_KEY 환경 변수가 필수입니다. "
+                "미설정이면 서버리스 인스턴스마다 임의 키가 달라져 세션·CSRF가 계속 실패합니다."
+            )
+        if not secret_key:
+            secret_key = secrets.token_urlsafe(32)
+
         return Settings(
-            secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)),
+            secret_key=secret_key,
             flask_env=os.getenv("FLASK_ENV", "production"),
             database_url=database_url,
             timezone=os.getenv("TIMEZONE", "Asia/Seoul"),

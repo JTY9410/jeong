@@ -147,9 +147,14 @@ def create_app() -> Flask:
 
     app.register_blueprint(web_bp)
 
+    def _is_api_path() -> bool:
+        """프록시/리라이터 뒤에서도 `/api/` 경로만 JSON 처리."""
+        path = request.path or ""
+        return path == "/api" or path.startswith("/api/")
+
     @app.errorhandler(CSRFError)
     def _handle_csrf(err: CSRFError):
-        if request.path.startswith("/api/"):
+        if _is_api_path():
             detail = getattr(err, "description", None) or str(err)
             return jsonify({"ok": False, "error": "csrf_failed", "message": detail}), 400
         return (
@@ -162,7 +167,7 @@ def create_app() -> Flask:
 
         @app.errorhandler(RateLimitExceeded)
         def _handle_rate_limit(err: RateLimitExceeded):
-            if request.path.startswith("/api/"):
+            if _is_api_path():
                 detail = getattr(err, "description", None) or str(err)
                 return jsonify({"ok": False, "error": "rate_limited", "message": detail}), 429
             return (
@@ -179,6 +184,14 @@ def create_app() -> Flask:
     is_reloader_child = os.environ.get("WERKZEUG_RUN_MAIN") == "true"
     if settings.scheduler_enabled and (is_reloader_child or settings.flask_env != "development"):
         SchedulerManager(app).start()
+
+    # Vercel 등 리버스 프록시 뒤: HTTPS·호스트 보정 없으면 세션 쿠키·CSRF 참조자 검증이 어긋날 수 있음
+    if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+        app.config["SESSION_COOKIE_SECURE"] = True
+        app.config["PREFERRED_URL_SCHEME"] = "https"
 
     return app
 
