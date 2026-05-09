@@ -573,6 +573,7 @@ def internal_crawl_status():
 
 @bp.get("/api/crawl/status")
 @csrf.exempt
+@api_limiter
 @api_login_required
 def api_crawl_status():
     """크롤 진행 상태 조회. Vercel에서는 EC2로 프록시."""
