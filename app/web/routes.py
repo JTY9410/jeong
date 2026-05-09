@@ -81,6 +81,7 @@ def login():
 
 
 @bp.post("/logout")
+@csrf.exempt
 def logout():
     session.clear()
     return redirect(url_for("web.login"))
