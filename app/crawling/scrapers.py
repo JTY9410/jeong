@@ -33,6 +33,12 @@ def _build_intern_search_terms(keywords: list[str], *, force_intern_keyword: boo
 
 
 def _is_humanities(title: str, keywords: list[str]) -> bool:
+    """
+    기본값은 '전체 직군' 수집.
+    HUMANITIES_ONLY=true 일 때만 키워드 기반 필터링을 적용합니다.
+    """
+    if (os.getenv("HUMANITIES_ONLY") or "").strip().lower() not in ("1", "true", "yes", "y", "on"):
+        return True
     t = (title or "").lower()
     return any((k or "").lower() in t for k in keywords)
 

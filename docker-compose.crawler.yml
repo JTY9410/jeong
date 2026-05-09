@@ -23,7 +23,7 @@ services:
       FLASK_ENV:                "production"
       TIMEZONE:                 "Asia/Seoul"
       SCHEDULER_ENABLED:        "true"
-      CRAWL_TIME:               "${CRAWL_TIME:-07:00}"
+      CRAWL_TIME:               "${CRAWL_TIME:-03:00}"
       INTERNSHIP_INTERVAL_MINUTES: "${INTERNSHIP_INTERVAL_MINUTES:-120}"
       DATABASE_URL:             "${DATABASE_URL}"
       CRAWLER_SHARED_SECRET:    "${CRAWLER_SHARED_SECRET}"

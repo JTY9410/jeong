@@ -57,7 +57,7 @@ class Settings:
             database_url=database_url,
             timezone=os.getenv("TIMEZONE", "Asia/Seoul"),
             scheduler_enabled=os.getenv("SCHEDULER_ENABLED", "true").lower() == "true",
-            crawl_time=os.getenv("CRAWL_TIME", "07:00"),
+            crawl_time=os.getenv("CRAWL_TIME", "03:00"),
             internship_interval_minutes=int(os.getenv("INTERNSHIP_INTERVAL_MINUTES", "120")),
             default_username=os.getenv("DEFAULT_USERNAME", "jsy1004"),
             default_password=os.getenv("DEFAULT_PASSWORD", "jsy0701"),

@@ -43,7 +43,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
     read -rp "CRAWLER_SHARED_SECRET (Vercel과 동일): " CSS
     read -rp "DEFAULT_USERNAME [jsy1004]: " DU; DU="${DU:-jsy1004}"
     read -rp "DEFAULT_PASSWORD [jsy0701]: " DP; DP="${DP:-jsy0701}"
-    read -rp "CRAWL_TIME (크롤 시각, 기본 07:00): " CT; CT="${CT:-07:00}"
+    read -rp "CRAWL_TIME (크롤 시각, 기본 03:00): " CT; CT="${CT:-03:00}"
 
     cat > "$ENV_FILE" <<EOF
 DATABASE_URL=${DB_URL}
