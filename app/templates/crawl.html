@@ -122,9 +122,47 @@ document.addEventListener("DOMContentLoaded", () => {
   const noti = document.getElementById("res-noti");
   const forceIntern = document.getElementById("force-intern-keyword");
 
+  let pollTimer = null;
+
+  function stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  async function pollStatus() {
+    try {
+      const res = await fetch("/api/crawl/status", {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.status === "running") {
+        status.textContent = "크롤링 중...";
+        return;
+      }
+      stopPoll();
+      btn.disabled = false;
+      if (data.status === "done" && data.result) {
+        const r = data.result;
+        jobs.textContent = String(r.new_jobs ?? "-");
+        interns.textContent = String(r.new_internships ?? "-");
+        noti.textContent = String(r.new_notifications ?? "-");
+        status.textContent = "완료";
+        if (window.showToast) window.showToast("크롤링 완료!", "success");
+      } else if (data.status === "error") {
+        status.textContent = "실패";
+        if (window.showToast) window.showToast(data.error || "크롤링 실패", "error");
+      } else {
+        status.textContent = "대기 중";
+      }
+    } catch (e) {
+      // 네트워크 오류는 무시하고 계속 폴링
+    }
+  }
+
   btn.addEventListener("click", async () => {
     btn.disabled = true;
-    status.textContent = "실행 중...";
+    status.textContent = "시작 중...";
+    stopPoll();
     try {
       const res = await fetch("/api/crawl/run", {
         method: "POST",
@@ -140,21 +178,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg = data.message || data.error || `HTTP ${res.status}`;
-        throw new Error(msg);
+        throw new Error(data.message || data.error || `HTTP ${res.status}`);
       }
-      const r = data.result || {};
-      jobs.textContent = String(r.new_jobs ?? "-");
-      interns.textContent = String(r.new_internships ?? "-");
-      noti.textContent = String(r.new_notifications ?? "-");
-      status.textContent = "완료";
-      if (window.showToast) window.showToast("크롤링 완료", "success");
+      // kick 성공 → 폴링 시작 (2초마다)
+      status.textContent = "크롤링 중...";
+      pollTimer = setInterval(pollStatus, 2000);
     } catch (e) {
-      status.textContent = "실패";
-      const msg = e && e.message ? e.message : "크롤링 실패";
-      if (window.showToast) window.showToast(msg, "error");
-    } finally {
       btn.disabled = false;
+      status.textContent = "실패";
+      if (window.showToast) window.showToast(e.message || "크롤링 실패", "error");
     }
   });
 });

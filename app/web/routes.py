@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import json
 import os
 import socket
+import threading
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -23,6 +25,10 @@ from app import csrf
 
 
 bp = Blueprint("web", __name__)
+
+# 프로세스 내 크롤 상태 (EC2 전용 — 싱글 워커 환경)
+_crawl_state: dict = {"running": False, "started_at": None, "result": None, "error": None}
+_crawl_lock = threading.Lock()
 
 
 def _crawler_upstream_timeout_sec() -> int:
@@ -451,120 +457,35 @@ def api_run_crawl():
                 500,
             )
 
-        timeout_sec = _crawler_upstream_timeout_sec()
-        upstream = f"{crawler_url}/internal/crawl/run"
+        # EC2에 크롤 시작만 요청하고 즉시 반환 (비동기 kick).
+        # Vercel 함수 타임아웃(10초) 문제를 근본적으로 해결합니다.
         host = urlparse(crawler_url).netloc or crawler_url
-        current_app.logger.info("vercel crawl proxy start host=%s timeout_s=%s", host, timeout_sec)
-
+        upstream = f"{crawler_url}/internal/crawl/run"
         payload = json.dumps({"force_intern_keyword": bool(force_intern_keyword)}).encode("utf-8")
-        req = Request(
-            upstream,
-            data=payload,
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "X-CRAWL-SECRET": secret,
-            },
-        )
+        req = Request(upstream, data=payload, method="POST",
+                      headers={"Content-Type": "application/json",
+                                "Accept": "application/json",
+                                "X-CRAWL-SECRET": secret})
         try:
-            with urlopen(req, timeout=timeout_sec) as resp:
+            # 타임아웃을 짧게(8초) 줘서 Vercel 10초 한도 안에 반환
+            with urlopen(req, timeout=8) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
-            try:
-                data = json.loads(body)
-            except Exception:
-                current_app.logger.warning("vercel crawl proxy: non-json body from upstream len=%s", len(body))
-                return (
-                    jsonify(
-                        {
-                            "ok": False,
-                            "error": "crawler_invalid_json",
-                            "message": "크롤러(EC2) 응답이 JSON이 아닙니다.",
-                            "raw": body[:4000],
-                        }
-                    ),
-                    502,
-                )
-            if not isinstance(data, dict):
-                return jsonify({"ok": False, "error": "crawler_bad_shape", "message": "크롤러 응답 형식이 올바르지 않습니다."}), 502
-            current_app.logger.info("vercel crawl proxy ok host=%s keys=%s", host, list(data.keys())[:8])
-            return jsonify(data), 200
+            data = json.loads(body) if body else {}
+            current_app.logger.info("vercel crawl kick ok host=%s status=%s",
+                                    host, data.get("status"))
+            return jsonify({"ok": True, "status": data.get("status", "started")}), 202
         except HTTPError as e:
             raw = e.read().decode("utf-8", errors="replace")
-            current_app.logger.warning(
-                "vercel crawl proxy HTTPError status=%s host=%s body_len=%s", e.code, host, len(raw)
-            )
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": "crawler_http_error",
-                        "message": f"크롤러 HTTP 오류: {e.code}",
-                        "status": e.code,
-                        "raw": raw[:4000],
-                    }
-                ),
-                502,
-            )
-        except URLError as e:
-            current_app.logger.warning("vercel crawl proxy URLError host=%s: %s", host, e)
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": "crawler_unreachable",
-                        "message": f"크롤러에 연결할 수 없습니다: {e}",
-                    }
-                ),
-                502,
-            )
-        except TimeoutError as e:
-            current_app.logger.warning("vercel crawl proxy timeout host=%s after %ss: %s", host, timeout_sec, e)
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": "crawler_timeout",
-                        "message": (
-                            f"크롤러 응답이 {timeout_sec}초 안에 끝나지 않았습니다. "
-                            "EC2에서 크롤이 오래 걸리면 Vercel 함수 시간/CRAWLER_REQUEST_TIMEOUT_SEC 를 늘리거나, "
-                            "크롤 시간을 줄이세요."
-                        ),
-                        "timeout_sec": timeout_sec,
-                    }
-                ),
-                504,
-            )
-        except socket.timeout as e:
-            current_app.logger.warning(
-                "vercel crawl proxy socket.timeout host=%s after %ss: %s", host, timeout_sec, e
-            )
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": "crawler_timeout",
-                        "message": (
-                            f"크롤러 응답이 {timeout_sec}초 안에 끝나지 않았습니다. "
-                            "CRAWLER_REQUEST_TIMEOUT_SEC 및 Vercel maxDuration 을 확인하세요."
-                        ),
-                        "timeout_sec": timeout_sec,
-                    }
-                ),
-                504,
-            )
+            return jsonify({"ok": False, "error": "crawler_http_error",
+                            "message": f"크롤러 HTTP 오류: {e.code}",
+                            "status": e.code, "raw": raw[:2000]}), 502
+        except (URLError, OSError) as e:
+            return jsonify({"ok": False, "error": "crawler_unreachable",
+                            "message": f"크롤러에 연결할 수 없습니다: {e}"}), 502
         except Exception as e:
-            current_app.logger.exception("vercel crawl proxy failed host=%s", host)
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": "crawler_request_failed",
-                        "message": str(e),
-                    }
-                ),
-                502,
-            )
+            current_app.logger.exception("vercel crawl kick failed host=%s", host)
+            return jsonify({"ok": False, "error": "crawler_request_failed",
+                            "message": str(e)}), 502
 
     # Always allow manual crawl even if scheduler is disabled
     mgr = current_app.extensions.get("scheduler_manager")
@@ -583,8 +504,8 @@ def api_run_crawl():
 @csrf.exempt
 def internal_run_crawl():
     """
-    Internal endpoint intended for the crawler server (EC2).
-    Protected by a shared secret header.
+    EC2 전용. 크롤을 백그라운드 스레드에서 실행하고 즉시 반환합니다.
+    Vercel 함수 타임아웃(10초)을 피하기 위해 비동기 방식으로 동작합니다.
     """
     secret = (os.getenv("CRAWLER_SHARED_SECRET") or "").strip()
     if not secret or (request.headers.get("X-CRAWL-SECRET") or "").strip() != secret:
@@ -593,15 +514,93 @@ def internal_run_crawl():
     data = request.get_json(silent=True) or {}
     force_intern_keyword = bool(data.get("force_intern_keyword", True))
 
-    mgr = current_app.extensions.get("scheduler_manager")
-    if mgr:
-        result = mgr.run_once(force_intern_keyword=force_intern_keyword)
-        return jsonify({"ok": True, "result": result})
+    with _crawl_lock:
+        if _crawl_state["running"]:
+            return jsonify({"ok": True, "status": "already_running",
+                            "started_at": _crawl_state["started_at"]}), 200
+        _crawl_state["running"] = True
+        _crawl_state["started_at"] = datetime.utcnow().isoformat()
+        _crawl_state["result"] = None
+        _crawl_state["error"] = None
 
-    SessionLocal = current_app.extensions["SessionLocal"]
-    with SessionLocal() as db:
-        result = CrawlService(db).run(force_intern_keyword=force_intern_keyword)
-    return jsonify({"ok": True, "result": result})
+    app = current_app._get_current_object()
+
+    def _run():
+        try:
+            mgr = app.extensions.get("scheduler_manager")
+            if mgr:
+                result = mgr.run_once(force_intern_keyword=force_intern_keyword)
+            else:
+                SessionLocal = app.extensions["SessionLocal"]
+                with SessionLocal() as db:
+                    result = CrawlService(db).run(force_intern_keyword=force_intern_keyword)
+            with _crawl_lock:
+                _crawl_state["result"] = result
+        except Exception as e:
+            with _crawl_lock:
+                _crawl_state["error"] = str(e)
+        finally:
+            with _crawl_lock:
+                _crawl_state["running"] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "status": "started",
+                    "started_at": _crawl_state["started_at"]}), 202
+
+
+@bp.get("/internal/crawl/status")
+@csrf.exempt
+def internal_crawl_status():
+    """EC2 크롤 진행 상태 조회. Vercel 폴링용."""
+    secret = (os.getenv("CRAWLER_SHARED_SECRET") or "").strip()
+    if not secret or (request.headers.get("X-CRAWL-SECRET") or "").strip() != secret:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    with _crawl_lock:
+        state = dict(_crawl_state)
+
+    if state["running"]:
+        return jsonify({"ok": True, "status": "running",
+                        "started_at": state["started_at"]}), 200
+    if state["error"]:
+        return jsonify({"ok": False, "status": "error",
+                        "error": state["error"]}), 200
+    if state["result"] is not None:
+        return jsonify({"ok": True, "status": "done",
+                        "result": state["result"]}), 200
+    return jsonify({"ok": True, "status": "idle"}), 200
+
+
+@bp.get("/api/crawl/status")
+@csrf.exempt
+@api_login_required
+def api_crawl_status():
+    """크롤 진행 상태 조회. Vercel에서는 EC2로 프록시."""
+    if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+        crawler_url = (os.getenv("CRAWLER_PROXY_URL") or "").strip().rstrip("/")
+        secret = (os.getenv("CRAWLER_SHARED_SECRET") or "").strip()
+        if not crawler_url or not secret:
+            return jsonify({"ok": True, "status": "idle"}), 200
+        try:
+            req = Request(f"{crawler_url}/internal/crawl/status",
+                          headers={"Accept": "application/json",
+                                   "X-CRAWL-SECRET": secret})
+            with urlopen(req, timeout=8) as resp:
+                return jsonify(json.loads(resp.read().decode("utf-8", errors="replace"))), 200
+        except Exception:
+            return jsonify({"ok": True, "status": "idle"}), 200
+
+    # EC2 직접 실행 시
+    with _crawl_lock:
+        state = dict(_crawl_state)
+    if state["running"]:
+        return jsonify({"ok": True, "status": "running",
+                        "started_at": state["started_at"]}), 200
+    if state["error"]:
+        return jsonify({"ok": False, "status": "error", "error": state["error"]}), 200
+    if state["result"] is not None:
+        return jsonify({"ok": True, "status": "done", "result": state["result"]}), 200
+    return jsonify({"ok": True, "status": "idle"}), 200
 
 
 @bp.get("/crawl")

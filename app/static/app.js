@@ -89,9 +89,38 @@ async function pollNotifications() {
 async function bindRunCrawl() {
   const btn = document.getElementById("btn-run-crawl");
   if (!btn) return;
+
+  let pollTimer = null;
+  function stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  async function pollStatus() {
+    try {
+      const res = await fetch("/api/crawl/status", {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.status === "running") return;
+      stopPoll();
+      btn.disabled = false;
+      if (data.status === "done") {
+        btn.textContent = "지금 크롤링 실행";
+        showToast("크롤링 완료!", "success");
+      } else if (data.status === "error") {
+        btn.textContent = "지금 크롤링 실행";
+        showToast(data.error || "크롤링 실패", "error");
+      } else {
+        btn.textContent = "지금 크롤링 실행";
+      }
+    } catch (_) {}
+  }
+
   btn.addEventListener("click", async () => {
     btn.disabled = true;
-    btn.textContent = "실행 중...";
+    btn.textContent = "시작 중...";
+    stopPoll();
     try {
       const res = await fetch("/api/crawl/run", {
         method: "POST",
@@ -104,19 +133,13 @@ async function bindRunCrawl() {
         body: JSON.stringify({})
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data.message || data.error || `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
-      btn.textContent = "완료";
-      showToast("크롤링 완료", "success");
-      setTimeout(() => { btn.textContent = "지금 크롤링 실행"; }, 1200);
+      if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+      btn.textContent = "크롤링 중...";
+      pollTimer = setInterval(pollStatus, 2000);
     } catch (e) {
-      btn.textContent = "실패";
-      showToast(e && e.message ? e.message : "크롤링 실패", "error");
-      setTimeout(() => { btn.textContent = "지금 크롤링 실행"; }, 1200);
-    } finally {
       btn.disabled = false;
+      btn.textContent = "지금 크롤링 실행";
+      showToast(e && e.message ? e.message : "크롤링 실패", "error");
     }
   });
 }
