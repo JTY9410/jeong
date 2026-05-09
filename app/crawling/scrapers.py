@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 import logging
 from urllib.parse import quote, quote_plus
@@ -1031,42 +1032,115 @@ async def scrape_all(
 ) -> tuple[list[ScrapeJob], list[ScrapeInternship]]:
     enabled = enabled or {}
 
-    jobs: list[ScrapeJob] = []
-    interns: list[ScrapeInternship] = []
+    async def _with_timeout(coro, *, timeout_sec: int, name: str):
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout_sec)
+        except asyncio.TimeoutError:
+            logger.warning("scrape timeout: %s (%ss)", name, timeout_sec)
+            return []
+        except Exception:
+            logger.exception("scrape failed: %s", name)
+            return []
 
+    # 병렬 수집으로 전체 소요시간을 줄이고, 사이트별 타임아웃으로 무한 대기를 방지합니다.
+    job_tasks = []
     if enabled.get("public:jobkorea", True):
-        jobs += await scrape_jobkorea_public(keywords)
+        job_tasks.append(_with_timeout(scrape_jobkorea_public(keywords), timeout_sec=70, name="public:jobkorea"))
     if enabled.get("public:saramin", True):
-        jobs += await scrape_saramin_public(keywords)
+        job_tasks.append(_with_timeout(scrape_saramin_public(keywords), timeout_sec=70, name="public:saramin"))
     if enabled.get("public:linkareer", True):
-        jobs += await scrape_linkareer_public(keywords)
+        job_tasks.append(_with_timeout(scrape_linkareer_public(keywords), timeout_sec=70, name="public:linkareer"))
     if enabled.get("public:catch", True):
-        jobs += await scrape_catch_public(keywords)
-    if enabled.get("public_sector:public_corps", True) or enabled.get("public_sector:govt_jobs", True) or enabled.get(
-        "public_sector:local_govt", True
+        job_tasks.append(_with_timeout(scrape_catch_public(keywords), timeout_sec=80, name="public:catch"))
+    if (
+        enabled.get("public_sector:public_corps", True)
+        or enabled.get("public_sector:govt_jobs", True)
+        or enabled.get("public_sector:local_govt", True)
     ):
-        jobs += await scrape_public_sector(keywords)
+        job_tasks.append(_with_timeout(scrape_public_sector(keywords), timeout_sec=35, name="public_sector"))
 
+    intern_tasks = []
     if enabled.get("internship:jobkorea", True):
-        interns += await scrape_jobkorea_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_jobkorea_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=90,
+                name="internship:jobkorea",
+            )
+        )
     if enabled.get("internship:saramin", True):
-        interns += await scrape_saramin_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_saramin_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=110,
+                name="internship:saramin",
+            )
+        )
     if enabled.get("internship:incruit", True):
-        interns += await scrape_incruit_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_incruit_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=80,
+                name="internship:incruit",
+            )
+        )
     if enabled.get("internship:worknet", True):
-        interns += await scrape_worknet_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_worknet_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=80,
+                name="internship:worknet",
+            )
+        )
     if enabled.get("internship:linkareer", True):
-        interns += await scrape_linkareer_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_linkareer_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=80,
+                name="internship:linkareer",
+            )
+        )
     if enabled.get("internship:catch", True):
-        interns += await scrape_catch_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_catch_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=90,
+                name="internship:catch",
+            )
+        )
     if enabled.get("internship:linkedin", False):
-        interns += await scrape_linkedin_internships(keywords)
+        intern_tasks.append(_with_timeout(scrape_linkedin_internships(keywords), timeout_sec=15, name="internship:linkedin"))
     if enabled.get("internship:wevity", True):
-        interns += await scrape_wevity_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_wevity_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=80,
+                name="internship:wevity",
+            )
+        )
     if enabled.get("internship:interninmeta", True):
-        interns += await scrape_interninmeta_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_interninmeta_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=80,
+                name="internship:interninmeta",
+            )
+        )
     if enabled.get("internship:indeed_kr", True):
-        interns += await scrape_indeed_kr_internships(keywords, force_intern_keyword=force_intern_keyword)
+        intern_tasks.append(
+            _with_timeout(
+                scrape_indeed_kr_internships(keywords, force_intern_keyword=force_intern_keyword),
+                timeout_sec=80,
+                name="internship:indeed_kr",
+            )
+        )
 
+    job_results, intern_results = await asyncio.gather(
+        asyncio.gather(*job_tasks, return_exceptions=False),
+        asyncio.gather(*intern_tasks, return_exceptions=False),
+    )
+
+    jobs: list[ScrapeJob] = [x for sub in job_results for x in (sub or [])]
+    interns: list[ScrapeInternship] = [x for sub in intern_results for x in (sub or [])]
     return jobs, interns
 
