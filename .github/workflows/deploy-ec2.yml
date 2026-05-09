@@ -26,7 +26,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+            script: |
             set -e
             cd "${{ secrets.EC2_DEPLOY_DIR }}"
 
@@ -41,3 +41,14 @@ jobs:
 
             # 오래된 이미지 정리
             docker image prune -f
+
+            # 기동 확인 (최대 60초 대기)
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8000/ > /dev/null 2>&1; then
+                echo "✅ 크롤러 서버가 정상 기동되었습니다."
+                break
+              fi
+              echo "대기 중... ($i/12)"
+              sleep 5
+            done
+            docker compose -f docker-compose.crawler.yml ps

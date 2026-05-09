@@ -1047,32 +1047,26 @@ async def scrape_all(
     ):
         jobs += await scrape_public_sector(keywords)
 
-    if enabled.get("internship:wevity", True) or enabled.get("internship:interninmeta", True) or enabled.get(
-        "internship:indeed_kr", True
-    ):
-        # 신규: 대형 채용 사이트/정부 사이트도 인턴 수집
-        if enabled.get("internship:jobkorea", True):
-            interns += await scrape_jobkorea_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:saramin", True):
-            interns += await scrape_saramin_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:incruit", True):
-            interns += await scrape_incruit_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:worknet", True):
-            interns += await scrape_worknet_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:linkareer", True):
-            interns += await scrape_linkareer_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:catch", True):
-            interns += await scrape_catch_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:linkedin", False):
-            interns += await scrape_linkedin_internships(keywords)
-
-        # 기존: 커뮤니티/검색 기반
-        if enabled.get("internship:wevity", True):
-            interns += await scrape_wevity_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:interninmeta", True):
-            interns += await scrape_interninmeta_internships(keywords, force_intern_keyword=force_intern_keyword)
-        if enabled.get("internship:indeed_kr", True):
-            interns += await scrape_indeed_kr_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:jobkorea", True):
+        interns += await scrape_jobkorea_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:saramin", True):
+        interns += await scrape_saramin_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:incruit", True):
+        interns += await scrape_incruit_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:worknet", True):
+        interns += await scrape_worknet_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:linkareer", True):
+        interns += await scrape_linkareer_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:catch", True):
+        interns += await scrape_catch_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:linkedin", False):
+        interns += await scrape_linkedin_internships(keywords)
+    if enabled.get("internship:wevity", True):
+        interns += await scrape_wevity_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:interninmeta", True):
+        interns += await scrape_interninmeta_internships(keywords, force_intern_keyword=force_intern_keyword)
+    if enabled.get("internship:indeed_kr", True):
+        interns += await scrape_indeed_kr_internships(keywords, force_intern_keyword=force_intern_keyword)
 
     return jobs, interns
 

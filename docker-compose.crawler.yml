@@ -16,6 +16,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       SECRET_KEY:               "${SECRET_KEY}"
       FLASK_ENV:                "production"
@@ -27,3 +29,9 @@ services:
       CRAWLER_SHARED_SECRET:    "${CRAWLER_SHARED_SECRET}"
       DEFAULT_USERNAME:         "${DEFAULT_USERNAME:-jsy1004}"
       DEFAULT_PASSWORD:         "${DEFAULT_PASSWORD:-jsy0701}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
