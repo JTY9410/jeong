@@ -27,7 +27,7 @@ from app import csrf
 bp = Blueprint("web", __name__)
 
 # 프로세스 내 크롤 상태 (EC2 전용 — 싱글 워커 환경)
-_crawl_state: dict = {"running": False, "started_at": None, "result": None, "error": None}
+_crawl_state: dict = {"running": False, "started_at": None, "finished_at": None, "result": None, "error": None}
 _crawl_lock = threading.Lock()
 
 
@@ -521,6 +521,7 @@ def internal_run_crawl():
                             "started_at": _crawl_state["started_at"]}), 200
         _crawl_state["running"] = True
         _crawl_state["started_at"] = datetime.utcnow().isoformat()
+        _crawl_state["finished_at"] = None
         _crawl_state["result"] = None
         _crawl_state["error"] = None
 
@@ -543,6 +544,7 @@ def internal_run_crawl():
         finally:
             with _crawl_lock:
                 _crawl_state["running"] = False
+                _crawl_state["finished_at"] = datetime.utcnow().isoformat()
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True, "status": "started",
@@ -565,11 +567,17 @@ def internal_crawl_status():
                         "started_at": state["started_at"]}), 200
     if state["error"]:
         return jsonify({"ok": False, "status": "error",
-                        "error": state["error"]}), 200
+                        "error": state["error"],
+                        "started_at": state.get("started_at"),
+                        "finished_at": state.get("finished_at")}), 200
     if state["result"] is not None:
         return jsonify({"ok": True, "status": "done",
-                        "result": state["result"]}), 200
-    return jsonify({"ok": True, "status": "idle"}), 200
+                        "result": state["result"],
+                        "started_at": state.get("started_at"),
+                        "finished_at": state.get("finished_at")}), 200
+    return jsonify({"ok": True, "status": "idle",
+                    "started_at": state.get("started_at"),
+                    "finished_at": state.get("finished_at")}), 200
 
 
 @bp.get("/api/crawl/status")
@@ -599,10 +607,18 @@ def api_crawl_status():
         return jsonify({"ok": True, "status": "running",
                         "started_at": state["started_at"]}), 200
     if state["error"]:
-        return jsonify({"ok": False, "status": "error", "error": state["error"]}), 200
+        return jsonify({"ok": False, "status": "error",
+                        "error": state["error"],
+                        "started_at": state.get("started_at"),
+                        "finished_at": state.get("finished_at")}), 200
     if state["result"] is not None:
-        return jsonify({"ok": True, "status": "done", "result": state["result"]}), 200
-    return jsonify({"ok": True, "status": "idle"}), 200
+        return jsonify({"ok": True, "status": "done",
+                        "result": state["result"],
+                        "started_at": state.get("started_at"),
+                        "finished_at": state.get("finished_at")}), 200
+    return jsonify({"ok": True, "status": "idle",
+                    "started_at": state.get("started_at"),
+                    "finished_at": state.get("finished_at")}), 200
 
 
 @bp.get("/crawl")

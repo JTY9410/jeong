@@ -1042,7 +1042,7 @@ async def scrape_all(
     # EC2 t3.micro 등 소형 인스턴스에서는 Chromium 컨텍스트를 동시에 많이 띄우면
     # CPU/메모리/네트워크가 포화되어 서버 자체가 응답 불능(SSH/HTTP timeout)으로 빠질 수 있습니다.
     # 기본 동시성은 낮게 유지합니다.
-    sem = asyncio.Semaphore(int(os.getenv("CRAWL_CONCURRENCY", "2")))
+    sem = asyncio.Semaphore(int(os.getenv("CRAWL_CONCURRENCY", "1")))
 
     async def _with_timeout(coro, *, timeout_sec: int, name: str):
         try:
